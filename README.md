@@ -91,3 +91,21 @@ clojure -M:dev:run
 ## License
 
 AGPL-3.0-or-later — see `LICENSE`.
+
+## Operator console (Pages)
+
+After enabling GitHub Pages (Settings → Pages → GitHub Actions), the
+static console is at:
+
+https://cloud-itonami.github.io/cloud-itonami-isic-2410/
+
+Local: open `docs/index.html` or `docs/samples/operator-console.html`.
+
+## Export audit package (CLI)
+
+```bash
+clojure -M:dev:export
+# or: clojure -M:dev:export /tmp/audit-2410
+```
+
+Writes CSV files under `out/audit-package/` (or the given directory).

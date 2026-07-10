@@ -109,3 +109,16 @@
                                (dispatch-rows st))
    "mill-cert.csv" (rows->csv [:seq :record_id :kind :heat_id :jurisdiction]
                                    (evidence-rows st))})
+
+#?(:clj
+(defn write-csv-bundle!
+  "Write `package->csv-bundle` files under `dir` (created if missing).
+  Returns the absolute path of `dir`. JVM-only I/O seam for social
+  hand-off scripts; pure package construction stays in `package->csv-bundle`."
+  [st dir]
+  (let [d (java.io.File. (str dir))
+        _ (.mkdirs d)
+        bundle (package->csv-bundle st)]
+    (doseq [[name body] bundle]
+      (spit (java.io.File. d (str name)) body))
+    (.getAbsolutePath d))))

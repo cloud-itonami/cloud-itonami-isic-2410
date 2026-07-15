@@ -1,10 +1,14 @@
 (ns steelworks.export-test
-  "Audit-package export contract -- social/regulatory hand-off shape."
+  "Audit-package export contract -- social/regulatory hand-off shape,
+  plus `pedigree-for-heat`'s cross-actor supply-chain-linkage export
+  (ADR-2607999950)."
   (:require [clojure.string :as str]
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
+            [kotoba.pedigree :as pedigree]
             [langgraph.graph :as g]
             [steelworks.export :as export]
             [steelworks.operation :as op]
+            [steelworks.robotics :as robotics]
             [steelworks.store :as store]))
 
 (def operator {:actor-id "op-1" :actor-role :mill-metallurgist :phase 3})
@@ -53,3 +57,36 @@
     (is (= 0 (get-in pkg [:counts :dispatches])))
     (is (= 4 (get-in pkg [:counts :heats])))
     (is (str/includes? (get bundle "ledger.csv") "seq,t,op"))))
+
+;; ---------------------------------------------------------------------------
+;; pedigree-for-heat (ADR-2607999950 cross-actor supply-chain linkage)
+;; ---------------------------------------------------------------------------
+
+(deftest pedigree-for-heat-builds-a-valid-pedigree-from-real-telemetry
+  (testing "a heat carrying its own real, already-simulated tensile-test telemetry yields a shape-valid pedigree"
+    (let [heat (merge {:id "heat-pedigree-1" :coupon-mass-kg 5.0}
+                       (robotics/tensile-test-telemetry-for {:coupon-mass-kg 5.0}))
+          p (export/pedigree-for-heat heat "2026-07-15")]
+      (is (some? p))
+      (is (true? (pedigree/valid? p)))
+      (is (= "heat-pedigree-1" (:pedigree/subject-lot-id p)))
+      (is (= "cloud-itonami-isic-2410" (:pedigree/issuing-actor p)))
+      (is (= "2026-07-15" (:pedigree/issued-at p)))
+      (testing "the claim value is the heat's OWN real simulated reading, not invented"
+        (is (= (:sim-tensile-load-n heat)
+               (pedigree/claim-value p :tensile-test-load-n)))
+        (is (= (:sim-tensile-load-n (robotics/tensile-test-telemetry-for {:coupon-mass-kg 5.0}))
+               (pedigree/claim-value p :tensile-test-load-n))))))
+  (testing "a heavier coupon-mass-kg yields a proportionally larger pedigree claim -- proves the claim tracks the real simulated trajectory, not a fixed number"
+    (let [light-heat (merge {:id "heat-light"} (robotics/tensile-test-telemetry-for {:coupon-mass-kg 2.0}))
+          heavy-heat (merge {:id "heat-heavy"} (robotics/tensile-test-telemetry-for {:coupon-mass-kg 4.0}))
+          light-p (export/pedigree-for-heat light-heat "2026-07-15")
+          heavy-p (export/pedigree-for-heat heavy-heat "2026-07-15")]
+      (is (< (pedigree/claim-value light-p :tensile-test-load-n)
+             (pedigree/claim-value heavy-p :tensile-test-load-n))))))
+
+(deftest pedigree-for-heat-never-fabricates-missing-telemetry
+  (testing "a heat with no real :sim-tensile-load-n on file yields nil, never an invented pedigree"
+    (is (nil? (export/pedigree-for-heat {:id "heat-x"} "2026-07-15")))
+    (is (nil? (export/pedigree-for-heat {:id "heat-x" :coupon-mass-kg 5.0} "2026-07-15"))
+        "coupon-mass-kg alone is not telemetry -- the simulation must actually have been run and merged in first")))

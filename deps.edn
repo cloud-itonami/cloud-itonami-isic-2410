@@ -34,7 +34,20 @@
         ;; those repos currently use.
         io.github.kotoba-lang/physics-2d
         {:git/url "https://github.com/kotoba-lang/physics-2d.git"
-         :sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}}
+         :sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}
+        ;; Cross-actor supply-chain-linkage contract (ADR-2607999950):
+        ;; `steelworks.export/pedigree-for-heat` packages a
+        ;; `kotoba.pedigree` record from a heat's own real, already-
+        ;; simulated `steelworks.robotics` tensile-test telemetry, so
+        ;; a downstream actor (pilot: `cloud-itonami-isic-2930`) can
+        ;; independently re-verify the claim as plain EDN data --
+        ;; never a live network call between actors. Same reasoning as
+        ;; physics-2d above: a real pinned git-coordinate dep (not
+        ;; :local/root) so this repo stays forkable standalone outside
+        ;; the monorepo.
+        io.github.kotoba-lang/pedigree
+        {:git/url "https://github.com/kotoba-lang/pedigree.git"
+         :sha "84808e26a767791d6d3de06357ba8410bd05eaca"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps

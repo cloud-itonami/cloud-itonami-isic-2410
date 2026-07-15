@@ -78,6 +78,27 @@
       (is (= :hold (get-in res [:state :disposition])))
       (is (some #{:evidence-incomplete} (-> (store/ledger db) first :basis))))))
 
+(deftest tensile-test-out-of-tolerance-is-held
+  (testing "ADR-2607999600: a heat whose own recorded :coupon-mass-kg yields a REAL physics-2d-simulated peak tensile load below the disclosed floor -> HOLD, wired into the SAME :actuation/dispatch-heat proposal-gating function every other HARD check runs through"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t11pre" "heat-1")
+          _ (store/commit-record! db {:effect :heat/upsert :value {:id "heat-1" :coupon-mass-kg 1.0}})
+          res (exec-op actor "t11" {:op :actuation/dispatch-heat :subject "heat-1"} operator)]
+      (is (= :hold (get-in res [:state :disposition])))
+      (is (some #{:tensile-test-out-of-tolerance} (-> (store/ledger db) last :basis)))
+      (is (empty? (store/dispatch-history db)) "no dispatch record drafted"))))
+
+(deftest tensile-test-in-tolerance-does-not-block-dispatch
+  (testing "a heat whose own recorded :coupon-mass-kg clears the real disclosed floor is unaffected by this check -- still escalates for human approval like any clean dispatch, proving this ADR is purely additive"
+    (let [[db actor] (fresh)
+          _ (verify! actor "t12pre" "heat-1")
+          _ (store/commit-record! db {:effect :heat/upsert :value {:id "heat-1" :coupon-mass-kg 5.0}})
+          r1 (exec-op actor "t12" {:op :actuation/dispatch-heat :subject "heat-1"} operator)]
+      (is (= :interrupted (:status r1)) "pauses for human approval even when governor-clean")
+      (let [r2 (approve! actor "t12")]
+        (is (= :commit (get-in r2 [:state :disposition])))
+        (is (true? (:heat-dispatched? (store/heat db "heat-1"))))))))
+
 (deftest heat-chemistry-out-of-range-is-held
   (testing "a heat whose own dimensional tolerance falls outside its own spec bounds -> HOLD"
     (let [[db actor] (fresh)

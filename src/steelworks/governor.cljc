@@ -10,13 +10,14 @@
   able to *reject* a proposal and fall back to HOLD -- the steelworks-
   manufacturer analog of `cloud-itonami-isic-6512`'s CasualtyGovernor.
 
-  Six checks, in priority order, ALL HARD violations: a human approver
-  CANNOT override them (you don't get to approve your way past a
-  fabricated class spec-basis, incomplete evidence, an out-of-
-  spec heat, an unresolved quality defect, or a double dispatch/
-  evidence-issuance). The confidence/actuation gate is SOFT: it asks a
-  human to look (low confidence / actuation), and the human may
-  approve -- but see `steelworks.phase`: for `:stake :actuation/
+  Seven checks, in priority order, ALL HARD violations: a human
+  approver CANNOT override them (you don't get to approve your way
+  past a fabricated class spec-basis, incomplete evidence, a robot
+  tensile-test simulation that independently re-checks out-of-
+  tolerance, an out-of-spec heat, an unresolved quality defect, or a
+  double dispatch/evidence-issuance). The confidence/actuation gate is
+  SOFT: it asks a human to look (low confidence / actuation), and the
+  human may approve -- but see `steelworks.phase`: for `:stake :actuation/
   dispatch-assembly`/`:actuation/issue-mill-cert` (a real
   safety-critical act) NO phase ever allows auto-commit either. Two
   independent layers agree that actuation is always a human call.
@@ -33,7 +34,40 @@
                                        quality-chain-of-custody-record/
                                        material-certification-record
                                        evidence checklist on file?
-    3. Heat tolerance out of
+    3. Tensile-test load
+       independently out of
+       tolerance                     -- for `:actuation/dispatch-heat`
+                                       (ADR-2607999600): INDEPENDENTLY
+                                       recompute, FRESH every call,
+                                       whether the heat's own recorded
+                                       `:coupon-mass-kg` yields a REAL
+                                       `physics-2d`-simulated peak
+                                       tensile load (`steelworks.
+                                       robotics/run-tensile-test`, a
+                                       genuine time-stepped rigid-body
+                                       simulation of an ASTM A370/ISO
+                                       6892 steel-coupon tensile test)
+                                       below the real disclosed minimum
+                                       required tensile load
+                                       (`steelworks.robotics/
+                                       simulation-out-of-tolerance?`) --
+                                       never trusts any self-reported
+                                       checklist string for the
+                                       material-certification-record's
+                                       mechanical-property half. An
+                                       unrelated QA domain (mechanical
+                                       tensile-load qualification) to
+                                       check 4 below (chemical
+                                       composition), folded into its
+                                       OWN HARD check, ADDITIONAL to
+                                       every other check -- never
+                                       replacing any of them. A heat
+                                       with no `:coupon-mass-kg` on
+                                       file never triggers this check
+                                       (missing telemetry != violation,
+                                       see `steelworks.robotics` ns
+                                       docstring).
+    4. Heat tolerance out of
        range                         -- for `:actuation/dispatch-
                                        assembly`, INDEPENDENTLY
                                        recompute whether the
@@ -55,7 +89,7 @@
                                        contaminant-level-out-of-range-
                                        violations` established the
                                        first three).
-    4. quality defect unresolved        -- reported by THIS proposal itself
+    5. quality defect unresolved        -- reported by THIS proposal itself
                                        (an `:quality/screen` that just
                                        found an unresolved defect), or
                                        already on file for the
@@ -79,7 +113,7 @@
                                        an actuation op against an
                                        unscreened heat -- see this
                                        ns's own test suite.
-    5. Confidence floor / actuation
+    6. Confidence floor / actuation
        gate                          -- LLM confidence below threshold,
                                        OR the op is `:actuation/
                                        dispatch-assembly`/`:actuation/
@@ -99,6 +133,7 @@
   isic-6492`'s status-lifecycle bug (ADR-2607071320)."
   (:require [steelworks.facts :as facts]
             [steelworks.registry :as registry]
+            [steelworks.robotics :as robotics]
             [steelworks.store :as store]))
 
 (def confidence-floor 0.6)
@@ -140,6 +175,30 @@
                       (:jurisdiction a) (:checklist verification)))
         [{:rule :evidence-incomplete
           :detail "法域の必要書類(CAEシミュレーション報告書/CFD検証報告書/品質検査連鎖記録/材料証明記録等)が充足していない状態での提案"}]))))
+
+(defn- tensile-test-out-of-tolerance-violations
+  "For `:actuation/dispatch-heat` (ADR-2607999600): INDEPENDENTLY
+  recompute -- FRESH, every call, never a previously stored/
+  self-reported value -- whether the heat's own recorded
+  `:coupon-mass-kg` yields a REAL `physics-2d`-simulated peak tensile
+  load (`steelworks.robotics/run-tensile-test`, a genuine time-stepped
+  rigid-body simulation of an ASTM A370/ISO 6892 steel-coupon tensile
+  test) below the real disclosed minimum required tensile load
+  (`steelworks.robotics/simulation-out-of-tolerance?`). An unrelated QA
+  domain (mechanical tensile-load qualification) to `heat-chemistry-
+  out-of-range-violations` below (chemical composition), folded into
+  its OWN HARD check, ADDITIONAL to every existing check -- never
+  replacing any of them. A heat with no `:coupon-mass-kg` on file (no
+  tensile-test coupon data yet) never triggers this check -- missing
+  telemetry is never silently treated as a violation, see
+  `steelworks.robotics` ns docstring."
+  [{:keys [op subject]} st]
+  (when (= op :actuation/dispatch-heat)
+    (let [a (store/heat st subject)]
+      (when (robotics/simulation-out-of-tolerance? a)
+        [{:rule :tensile-test-out-of-tolerance
+          :detail (str subject " の実測引張荷重が独立再検証で許容下限("
+                       robotics/min-tensile-load-n "N)を下回る")}]))))
 
 (defn- heat-chemistry-out-of-range-violations
   "For `:actuation/dispatch-heat`, INDEPENDENTLY recompute whether
@@ -199,6 +258,7 @@
   (let [hard (into []
                    (concat (spec-basis-violations request proposal)
                            (evidence-incomplete-violations request st)
+                           (tensile-test-out-of-tolerance-violations request st)
                            (heat-chemistry-out-of-range-violations request st)
                            (quality-defect-unresolved-violations request proposal st)
                            (already-dispatched-violations request st)

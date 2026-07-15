@@ -7,7 +7,34 @@
  ;; paths only resolve inside the monorepo checkout — a standalone fork
  ;; should override them with git coordinates.
  :deps {io.github.kotoba-lang/langgraph
-        {:local/root "../../kotoba-lang/langgraph"}}
+        {:local/root "../../kotoba-lang/langgraph"}
+        io.github.kotoba-lang/robotics
+        {:local/root "../../kotoba-lang/robotics"}
+        ;; REAL engineering-simulation dependency (ADR-2607999600,
+        ;; extending ADR-2607142800's/ADR-2607152000's fleet-wide
+        ;; robotics-process-simulation pattern to this vertical --
+        ;; see `autoparts.robotics`/`deviceassembly.robotics` for the
+        ;; prior instances of this same dependency): steelworks.
+        ;; robotics now actually calls physics-2d/world-step -- a
+        ;; real, tested time-stepped rigid-body impulse solver -- to
+        ;; run a real steel-coupon tensile-test simulation (ASTM
+        ;; A370/ISO 6892), ADDITIONAL to (never replacing) the
+        ;; existing self-reported evidence-checklist gate and the
+        ;; existing symbolic heat-chemistry-deviation field
+        ;; comparison. This vertical has no design-library sibling
+        ;; repo, so the physics module is built directly in
+        ;; steelworks.robotics and the ONLY new dependencies are
+        ;; kotoba-lang/robotics (the shared mission/action/telemetry-
+        ;; proof contract every cloud-itonami vertical's robotics ns
+        ;; uses) and physics-2d itself, taken as a real pinned
+        ;; git-coordinate dep (not :local/root) so this repo stays
+        ;; forkable standalone outside the monorepo -- the same
+        ;; reasoning `autoparts.robotics`/`deviceassembly.robotics`
+        ;; already established, using the SAME fleet-standard SHA pin
+        ;; those repos currently use.
+        io.github.kotoba-lang/physics-2d
+        {:git/url "https://github.com/kotoba-lang/physics-2d.git"
+         :sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps

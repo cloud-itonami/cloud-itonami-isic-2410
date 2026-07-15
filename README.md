@@ -109,3 +109,31 @@ clojure -M:dev:export
 ```
 
 Writes CSV files under `out/audit-package/` (or the given directory).
+
+## Cross-actor supply-chain linkage (ADR-2607999950)
+
+Every `cloud-itonami-isic-*` open business is built on a strict "pure
+data + pure functions -- no I/O, no network" discipline, which used
+to mean each ISIC vertical was a complete data-graph silo even where
+verticals are conceptually a supply chain. `steelworks.export/
+pedigree-for-heat` closes that gap for this actor's upstream role: it
+packages a [`kotoba-lang/pedigree`](https://github.com/kotoba-lang/pedigree)
+record from a heat's own real, already-simulated `steelworks.
+robotics` tensile-test telemetry (ADR-2607999600) -- never an
+invented claim. A downstream actor (pilot: `cloud-itonami-isic-2930`)
+accepts that record as a plain EDN data argument and its own governor
+independently re-verifies it before trusting it. Still no live
+network call between actors: the handoff is test/demo/orchestration-
+script-level wiring, not an HTTP fetch.
+
+```clojure
+(require '[steelworks.robotics :as robotics]
+         '[steelworks.export :as export])
+
+(def heat (merge {:id "heat-1" :coupon-mass-kg 5.0}
+                  (robotics/tensile-test-telemetry-for {:coupon-mass-kg 5.0})))
+(export/pedigree-for-heat heat "2026-07-15")
+;; => #:pedigree{:id "PEDIGREE-heat-1" :subject-lot-id "heat-1"
+;;               :issuing-actor "cloud-itonami-isic-2410"
+;;               :claims {:tensile-test-load-n 8000.0} ...}
+```

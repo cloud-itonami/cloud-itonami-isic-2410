@@ -8,8 +8,17 @@
   file the package; this namespace only materializes the package body.
 
   This is the honest delivery of the industry-stack `:export?` contract
-  (robotics / audit-ledger capabilities) for ISIC 2410."
+  (robotics / audit-ledger capabilities) for ISIC 2410.
+
+  `pedigree-for-heat` (ADR-2607999950) is a SEPARATE kind of export:
+  not a social/regulatory hand-off bundle, but a cross-actor supply-
+  chain-linkage record (`kotoba.pedigree`) a downstream actor (pilot:
+  `cloud-itonami-isic-2930`) can independently re-verify. Still the
+  same discipline as everything else in this ns: a pure data
+  transform over data already on file, never a live network call and
+  never an invented claim."
   (:require [clojure.string :as str]
+            [kotoba.pedigree :as pedigree]
             [steelworks.store :as store]))
 
 (defn- csv-escape [v]
@@ -122,3 +131,48 @@
     (doseq [[name body] bundle]
       (spit (java.io.File. d (str name)) body))
     (.getAbsolutePath d))))
+
+;; ---------------------------------------------------------------------------
+;; Cross-actor supply-chain-linkage export (ADR-2607999950)
+;; ---------------------------------------------------------------------------
+
+(defn pedigree-for-heat
+  "Builds a `kotoba.pedigree` record (a material-pedigree/mill-
+  certificate-of-conformance-equivalent EDN interchange record --
+  ADR-2607999950's cross-actor supply-chain-linkage pilot,
+  isic-2410 -> isic-2930) for `heat`, a heat record that ALREADY
+  carries its own real, already-simulated tensile-test telemetry on
+  file (`:sim-tensile-load-n`, from `steelworks.robotics/tensile-
+  test-telemetry-for` -- ADR-2607999600's real `physics-2d` time-
+  stepped steel-coupon tensile-test simulation). This fn does NOT run
+  that simulation itself -- it only packages a reading already on the
+  heat map, mirroring how every other fn in this ns only ever
+  materializes a package body over data already on file, never
+  computes new evidence.
+
+  `issued-at` (an ISO date string) is a caller-supplied argument, not
+  a wall-clock read -- this fn stays pure/deterministic, the same
+  discipline `kotoba.robotics/telemetry-proof`'s caller-supplied
+  `:timestamp` already establishes.
+
+  `:pedigree/claims` reports `:tensile-test-load-n` -- a FORCE
+  reading in Newtons, honestly named: `steelworks.robotics`'s
+  simulation derives a peak tensile LOAD (mass x deceleration), not a
+  stress in MPa -- this actor has no cross-sectional-area/stress
+  model at all (see `steelworks.robotics` ns docstring), so reporting
+  a stress figure here would require an INVENTED area; a claim this
+  library's own docstring forbids. `:pedigree/evidence-basis` cites
+  the real simulation function that derived the reading, never a
+  self-reported checklist string.
+
+  Returns nil (never a fabricated pedigree) when `heat` carries no
+  real `:sim-tensile-load-n` on file -- the SAME disclosed 'missing
+  telemetry != inventable' discipline `steelworks.robotics` ns
+  docstring / `simulation-out-of-tolerance?` already establish."
+  [{:keys [id sim-tensile-load-n]} issued-at]
+  (when (and id (number? sim-tensile-load-n))
+    (pedigree/claim
+     (str "PEDIGREE-" id) id "cloud-itonami-isic-2410"
+     {:tensile-test-load-n sim-tensile-load-n}
+     :evidence-basis ["steelworks.robotics/run-tensile-test (physics-2d time-stepped rigid-body simulation, ASTM A370 / ISO 6892 steel-coupon tensile-test reinterpretation -- see ns docstring)"]
+     :issued-at issued-at)))

@@ -10,13 +10,13 @@
   This is the honest delivery of the industry-stack `:export?` contract
   (robotics / audit-ledger capabilities) for ISIC 2410.
 
-  `pedigree-for-heat` (ADR-2607999950) is a SEPARATE kind of export:
-  not a social/regulatory hand-off bundle, but a cross-actor supply-
-  chain-linkage record (`kotoba.pedigree`) a downstream actor (pilot:
-  `cloud-itonami-isic-2930`) can independently re-verify. Still the
-  same discipline as everything else in this ns: a pure data
-  transform over data already on file, never a live network call and
-  never an invented claim."
+  `pedigree-for-heat` (ADR-2607999950, extended by ADR-2607999970) is
+  a SEPARATE kind of export: not a social/regulatory hand-off bundle,
+  but a cross-actor supply-chain-linkage record (`kotoba.pedigree`) a
+  downstream actor (pilot: `cloud-itonami-isic-2930`) can
+  independently re-verify. Still the same discipline as everything
+  else in this ns: a pure data transform over data already on file,
+  never a live network call and never an invented claim."
   (:require [clojure.string :as str]
             [kotoba.pedigree :as pedigree]
             [steelworks.store :as store]))
@@ -168,11 +168,32 @@
   Returns nil (never a fabricated pedigree) when `heat` carries no
   real `:sim-tensile-load-n` on file -- the SAME disclosed 'missing
   telemetry != inventable' discipline `steelworks.robotics` ns
-  docstring / `simulation-out-of-tolerance?` already establish."
-  [{:keys [id sim-tensile-load-n]} issued-at]
+  docstring / `simulation-out-of-tolerance?` already establish.
+
+  Genuine 3-hop chaining (ADR-2607999970, the third applied link):
+  when `heat` itself already carries an `:upstream-ore-pedigree` (a
+  `kotoba.pedigree` record an upstream `cloud-itonami-isic-0710`
+  iron-ore production record issued via `ironops.export/pedigree-
+  for-production-record`, and this actor's OWN governor
+  independently re-verified before ever letting the heat dispatch --
+  see `steelworks.governor`'s `upstream-ore-pedigree-claims-out-of-
+  tolerance-violations`), it is embedded here as `:pedigree/upstream`
+  (`kotoba.pedigree/claim`'s `:upstream` option, ADR-2607999960),
+  producing a genuine THREE-hop provenance chain (iron ore -> steel
+  heat -> ...) `cloud-itonami-isic-2930`'s own governor can
+  independently re-verify shape-wise via `kotoba.pedigree/valid?`'s
+  recursive check -- never a bare id the receiver has to go look up,
+  and never a second network fetch. When `heat` carries no
+  `:upstream-ore-pedigree`, `:pedigree/upstream` is simply omitted --
+  a single-hop heat pedigree is unaffected by this option's
+  existence, the exact same additive shape `autoparts.export/
+  pedigree-for-part-lot` already established for ITS OWN
+  `:upstream-pedigree` one link earlier."
+  [{:keys [id sim-tensile-load-n upstream-ore-pedigree]} issued-at]
   (when (and id (number? sim-tensile-load-n))
     (pedigree/claim
      (str "PEDIGREE-" id) id "cloud-itonami-isic-2410"
      {:tensile-test-load-n sim-tensile-load-n}
      :evidence-basis ["steelworks.robotics/run-tensile-test (physics-2d time-stepped rigid-body simulation, ASTM A370 / ISO 6892 steel-coupon tensile-test reinterpretation -- see ns docstring)"]
-     :issued-at issued-at)))
+     :issued-at issued-at
+     :upstream upstream-ore-pedigree)))

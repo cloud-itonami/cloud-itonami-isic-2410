@@ -10,14 +10,16 @@
   able to *reject* a proposal and fall back to HOLD -- the steelworks-
   manufacturer analog of `cloud-itonami-isic-6512`'s CasualtyGovernor.
 
-  Seven checks, in priority order, ALL HARD violations: a human
+  Eight checks, in priority order, ALL HARD violations: a human
   approver CANNOT override them (you don't get to approve your way
   past a fabricated class spec-basis, incomplete evidence, a robot
   tensile-test simulation that independently re-checks out-of-
-  tolerance, an out-of-spec heat, an unresolved quality defect, or a
-  double dispatch/evidence-issuance). The confidence/actuation gate is
-  SOFT: it asks a human to look (low confidence / actuation), and the
-  human may approve -- but see `steelworks.phase`: for `:stake :actuation/
+  tolerance, an out-of-spec heat, an unresolved quality defect, an
+  upstream ore pedigree whose shape or claims fail independent
+  re-verification, or a double dispatch/evidence-issuance). The
+  confidence/actuation gate is SOFT: it asks a human to look (low
+  confidence / actuation), and the human may approve -- but see
+  `steelworks.phase`: for `:stake :actuation/
   dispatch-assembly`/`:actuation/issue-mill-cert` (a real
   safety-critical act) NO phase ever allows auto-commit either. Two
   independent layers agree that actuation is always a human call.
@@ -113,7 +115,45 @@
                                        an actuation op against an
                                        unscreened heat -- see this
                                        ns's own test suite.
-    6. Confidence floor / actuation
+    6. Upstream ore pedigree claims
+       out of tolerance              -- ADR-2607999970's third
+                                       applied link of the
+                                       ADR-2607999950 cross-actor
+                                       supply-chain-linkage pattern:
+                                       for `:actuation/dispatch-heat`,
+                                       when the heat carries an
+                                       OPTIONAL `:upstream-ore-
+                                       pedigree` (a `kotoba.pedigree`
+                                       record an upstream `cloud-
+                                       itonami-isic-0710` iron-ore
+                                       production record issued via
+                                       `ironops.export/pedigree-for-
+                                       production-record`),
+                                       INDEPENDENTLY re-verify it --
+                                       never trust the upstream
+                                       actor's claim at face value:
+                                       (a) `kotoba.pedigree/valid?`
+                                       on its own shape, and (b) its
+                                       `:grade-actual` claim actually
+                                       clears THIS actor's own
+                                       disclosed acceptance floor for
+                                       upstream ore feedstock
+                                       (`min-upstream-ore-grade-pct`,
+                                       below). When `:upstream-ore-
+                                       pedigree` is ABSENT this check
+                                       is a NO-OP -- existing
+                                       proposals with no upstream
+                                       linkage continue to dispatch
+                                       exactly as before this ADR
+                                       (additive, never a breaking
+                                       change). The SAME 'ground
+                                       truth, not self-report'
+                                       discipline `autoparts.governor/
+                                       upstream-pedigree-claims-out-
+                                       of-tolerance-violations`
+                                       already established one link
+                                       earlier in this chain.
+    7. Confidence floor / actuation
        gate                          -- LLM confidence below threshold,
                                        OR the op is `:actuation/
                                        dispatch-assembly`/`:actuation/
@@ -131,12 +171,34 @@
   SAME 'check a dedicated boolean, not status' discipline every prior
   sibling governor's guards establish, informed by `cloud-itonami-
   isic-6492`'s status-lifecycle bug (ADR-2607071320)."
-  (:require [steelworks.facts :as facts]
+  (:require [kotoba.pedigree :as pedigree]
+            [steelworks.facts :as facts]
             [steelworks.registry :as registry]
             [steelworks.robotics :as robotics]
             [steelworks.store :as store]))
 
 (def confidence-floor 0.6)
+
+(def ^:const min-upstream-ore-grade-pct
+  "Real, disclosed minimum acceptable upstream iron-ore feedstock
+  grade (percent Fe content -- a `kotoba.pedigree` `:grade-actual`
+  claim from a `cloud-itonami-isic-0710`-issued pedigree,
+  ADR-2607999970) this actor requires before accepting an incoming
+  ore production record as suitable feedstock for a basic-iron-and-
+  steel heat.
+
+  Set at a commonly-cited direct-shipping-ore (DSO) viability floor:
+  iron-ore fines around 58% Fe are widely treated in the iron/steel
+  industry as the practical minimum for blast-furnace-viable direct-
+  shipping ore without extensive beneficiation (pelletizing/
+  sintering) -- the global seaborne benchmark grade (the Platts/S&P
+  Global IODEX 62% Fe Fines Index) sits comfortably above this floor.
+  58% is a commonly-cited generic threshold, not a literal
+  transcription of one specific named standard's number -- the SAME
+  disclosed-prior-allowance style `autoparts.governor/min-upstream-
+  tensile-load-n` already uses for ITS OWN cross-actor acceptance
+  floor one link earlier in this chain."
+  58.0)
 
 (def high-stakes
   "Stakes grave enough to always require a human, even when clean.
@@ -230,6 +292,46 @@
       [{:rule :quality-defect-unresolved
         :detail "未解決の品質検査欠陥がある状態でのミル規格証拠発行提案は進められない"}])))
 
+(defn- upstream-ore-pedigree-claims-out-of-tolerance-violations
+  "ADR-2607999970's third applied link of the ADR-2607999950
+  cross-actor supply-chain-linkage pattern. For `:actuation/dispatch-
+  heat`: when the heat carries an OPTIONAL `:upstream-ore-pedigree`
+  (a `kotoba.pedigree` record an upstream `cloud-itonami-isic-0710`
+  iron-ore production record issued via `ironops.export/pedigree-
+  for-production-record` and a test/demo/orchestration script
+  attached to this heat as plain EDN data -- never a live network
+  call), INDEPENDENTLY re-verify it, never trusting the upstream
+  actor's claim at face value: (a) the pedigree's own shape
+  (`kotoba.pedigree/valid?`) -- a malformed/incomplete pedigree is
+  never accepted, and (b) its `:grade-actual` claim actually clears
+  THIS actor's own disclosed acceptance floor for upstream ore
+  feedstock (`min-upstream-ore-grade-pct`) -- the SAME 'ground
+  truth, not self-report' discipline `tensile-test-out-of-tolerance-
+  violations`/`heat-chemistry-out-of-range-violations` above already
+  apply WITHIN this actor, now extended ACROSS actors, the same as
+  `autoparts.governor/upstream-pedigree-claims-out-of-tolerance-
+  violations` already does one link earlier in this chain.
+
+  When `:upstream-ore-pedigree` is ABSENT this check is a NO-OP --
+  existing proposals with no upstream linkage continue to dispatch
+  exactly as before this ADR (additive, never a breaking change)."
+  [{:keys [op subject]} st]
+  (when (= op :actuation/dispatch-heat)
+    (let [a (store/heat st subject)
+          p (:upstream-ore-pedigree a)]
+      (when (some? p)
+        (cond
+          (not (pedigree/valid? p))
+          [{:rule :upstream-ore-pedigree-invalid-shape
+            :detail (str subject " のupstream ore pedigreeがkotoba.pedigreeの形状検証に失敗")}]
+
+          (let [v (pedigree/claim-value p :grade-actual)]
+            (or (not (number? v)) (< v min-upstream-ore-grade-pct)))
+          [{:rule :upstream-ore-pedigree-claims-out-of-tolerance
+            :detail (str subject " のupstream ore pedigree(" (:pedigree/id p)
+                        ")の鉱石品位(" (pedigree/claim-value p :grade-actual)
+                        "%)が受入基準(" min-upstream-ore-grade-pct "%)を下回る")}])))))
+
 (defn- already-dispatched-violations
   "For `:actuation/dispatch-heat`, refuses to dispatch a heat
   action for the SAME heat twice, off a dedicated `:assembly-
@@ -261,6 +363,7 @@
                            (tensile-test-out-of-tolerance-violations request st)
                            (heat-chemistry-out-of-range-violations request st)
                            (quality-defect-unresolved-violations request proposal st)
+                           (upstream-ore-pedigree-claims-out-of-tolerance-violations request st)
                            (already-dispatched-violations request st)
                            (already-certified-violations request st)))
         conf (:confidence proposal 0.0)

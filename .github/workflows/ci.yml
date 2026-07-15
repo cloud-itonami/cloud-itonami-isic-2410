@@ -5,7 +5,14 @@ name: ci
 #
 # Workspace layout: deps use :local/root to kotoba-lang/langgraph,
 # kotoba-lang/langchain and kotoba-lang/robotics (all public). CI
-# reconstructs sibling paths.
+# reconstructs sibling paths. kotoba-lang/robotics' OWN deps.edn in
+# turn :local/root's to kotoba-lang/html + kotoba-lang/css (unrelated
+# to what `kotoba.robotics` itself uses -- those two are needed only
+# so `clojure` can build the classpath at all), so those are
+# reconstructed here too -- without them the `test` job fails with
+# "Local lib io.github.kotoba-lang/html not found" (confirmed via a
+# live sibling-repo CI run before this fix; a pre-existing upstream
+# kotoba-lang/robotics deps.edn gap, not introduced here).
 
 on:
   push:
@@ -42,6 +49,14 @@ jobs:
         with:
           repository: kotoba-lang/robotics
           path: orgs/kotoba-lang/robotics
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/html
+          path: orgs/kotoba-lang/html
+      - uses: actions/checkout@v4
+        with:
+          repository: kotoba-lang/css
+          path: orgs/kotoba-lang/css
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "21" }
       - uses: DeLaGuardo/setup-clojure@13.0

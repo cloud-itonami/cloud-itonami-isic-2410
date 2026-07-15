@@ -72,6 +72,8 @@
       (is (= "heat-pedigree-1" (:pedigree/subject-lot-id p)))
       (is (= "cloud-itonami-isic-2410" (:pedigree/issuing-actor p)))
       (is (= "2026-07-15" (:pedigree/issued-at p)))
+      (is (not (contains? p :pedigree/upstream))
+          "no :upstream-ore-pedigree on file -> no :pedigree/upstream key at all")
       (testing "the claim value is the heat's OWN real simulated reading, not invented"
         (is (= (:sim-tensile-load-n heat)
                (pedigree/claim-value p :tensile-test-load-n)))
@@ -90,3 +92,22 @@
     (is (nil? (export/pedigree-for-heat {:id "heat-x"} "2026-07-15")))
     (is (nil? (export/pedigree-for-heat {:id "heat-x" :coupon-mass-kg 5.0} "2026-07-15"))
         "coupon-mass-kg alone is not telemetry -- the simulation must actually have been run and merged in first")))
+
+;; ---------------------------------------------------------------------------
+;; :upstream-ore-pedigree embedding (ADR-2607999970 3-hop chaining)
+;; ---------------------------------------------------------------------------
+
+(deftest pedigree-for-heat-embeds-a-genuine-upstream-ore-pedigree
+  (testing "a heat carrying :upstream-ore-pedigree (an isic-0710 iron-ore production-record pedigree already independently re-verified by this actor's own governor) embeds it verbatim as :pedigree/upstream -- a real 3-hop chain (ore -> heat -> ...)"
+    (let [ore-pedigree (pedigree/claim "PEDIGREE-prod-1" "prod-1" "cloud-itonami-isic-0710"
+                                        {:grade-actual 62.5 :quantity-tonnes 5200.0}
+                                        :evidence-basis ["ironops.store/production-record"]
+                                        :issued-at "2026-07-15")
+          heat (merge {:id "heat-pedigree-2" :coupon-mass-kg 5.0 :upstream-ore-pedigree ore-pedigree}
+                      (robotics/tensile-test-telemetry-for {:coupon-mass-kg 5.0}))
+          p (export/pedigree-for-heat heat "2026-07-15")]
+      (is (true? (pedigree/valid? p)))
+      (is (= ore-pedigree (:pedigree/upstream p)))
+      (testing "each hop's own claim stays independently readable -- a genuine ore -> steel chain, not a flattened summary"
+        (is (= 62.5 (pedigree/claim-value (:pedigree/upstream p) :grade-actual)))
+        (is (= (:sim-tensile-load-n heat) (pedigree/claim-value p :tensile-test-load-n)))))))

@@ -33,7 +33,19 @@
   jurisdictional basis, approved by whom' is always a query over an
   immutable log -- the audit trail a community trusting an steelworks
   manufacturer needs, and the evidence a manufacturer needs if a
-  dispatch or mill-cert decision is later disputed."
+  dispatch or mill-cert decision is later disputed.
+
+  `:upstream-ore-pedigree` (ADR-2607999970, the THIRD applied link of
+  the ADR-2607999950 cross-actor supply-chain-linkage pattern) is an
+  OPTIONAL heat field -- a `kotoba.pedigree` record an upstream
+  `cloud-itonami-isic-0710` iron-ore production record issued via
+  `ironops.export/pedigree-for-production-record`, attached via the
+  SAME general-purpose `:heat/intake`+`:patch` mechanism every other
+  heat field already uses (no new op/effect needed) -- the same
+  convention `autoparts.store`'s own `:upstream-pedigree` field
+  already established one link earlier. Absent on every heat that
+  predates this ADR; `steelworks.governor`'s new check treats its
+  absence as a no-op, so this is purely additive on both backends."
   (:require #?(:clj  [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [steelworks.registry :as registry]
@@ -195,6 +207,7 @@
 (defn- block->tx [{:keys [id unit-name chemistry-deviation-actual chemistry-deviation-min chemistry-deviation-max
                              quality-defect-unresolved?
                              heat-dispatched? mill-certified?
+                             upstream-ore-pedigree
                              jurisdiction status dispatch-number evidence-number]}]
   (cond-> {:heat/id id}
     unit-name                                  (assoc :heat/unit-name unit-name)
@@ -204,6 +217,7 @@
     (some? quality-defect-unresolved?)              (assoc :heat/quality-defect-unresolved? quality-defect-unresolved?)
     (some? heat-dispatched?)                (assoc :heat/heat-dispatched? heat-dispatched?)
     (some? mill-certified?)            (assoc :heat/mill-certified? mill-certified?)
+    (some? upstream-ore-pedigree)               (assoc :heat/upstream-ore-pedigree (enc upstream-ore-pedigree))
     jurisdiction                                (assoc :heat/jurisdiction jurisdiction)
     status                                      (assoc :heat/status status)
     dispatch-number                             (assoc :heat/dispatch-number dispatch-number)
@@ -213,6 +227,7 @@
   [:heat/id :heat/unit-name :heat/chemistry-deviation-actual
    :heat/chemistry-deviation-min :heat/chemistry-deviation-max
    :heat/quality-defect-unresolved? :heat/heat-dispatched? :heat/mill-certified?
+   :heat/upstream-ore-pedigree
    :heat/jurisdiction :heat/status :heat/dispatch-number :heat/evidence-number])
 
 (defn- pull->heat [m]
@@ -224,6 +239,7 @@
      :quality-defect-unresolved? (boolean (:heat/quality-defect-unresolved? m))
      :heat-dispatched? (boolean (:heat/heat-dispatched? m))
      :mill-certified? (boolean (:heat/mill-certified? m))
+     :upstream-ore-pedigree (dec* (:heat/upstream-ore-pedigree m))
      :jurisdiction (:heat/jurisdiction m) :status (:heat/status m)
      :dispatch-number (:heat/dispatch-number m) :evidence-number (:heat/evidence-number m)}))
 

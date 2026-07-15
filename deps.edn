@@ -35,19 +35,31 @@
         io.github.kotoba-lang/physics-2d
         {:git/url "https://github.com/kotoba-lang/physics-2d.git"
          :sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}
-        ;; Cross-actor supply-chain-linkage contract (ADR-2607999950):
-        ;; `steelworks.export/pedigree-for-heat` packages a
-        ;; `kotoba.pedigree` record from a heat's own real, already-
-        ;; simulated `steelworks.robotics` tensile-test telemetry, so
-        ;; a downstream actor (pilot: `cloud-itonami-isic-2930`) can
-        ;; independently re-verify the claim as plain EDN data --
-        ;; never a live network call between actors. Same reasoning as
-        ;; physics-2d above: a real pinned git-coordinate dep (not
-        ;; :local/root) so this repo stays forkable standalone outside
-        ;; the monorepo.
+        ;; Cross-actor supply-chain-linkage contract (ADR-2607999950,
+        ;; extended by ADR-2607999970): `steelworks.export/pedigree-
+        ;; for-heat` packages a `kotoba.pedigree` record from a
+        ;; heat's own real, already-simulated `steelworks.robotics`
+        ;; tensile-test telemetry, so a downstream actor (pilot:
+        ;; `cloud-itonami-isic-2930`) can independently re-verify the
+        ;; claim as plain EDN data -- never a live network call
+        ;; between actors. Same reasoning as physics-2d above: a real
+        ;; pinned git-coordinate dep (not :local/root) so this repo
+        ;; stays forkable standalone outside the monorepo.
+        ;;
+        ;; BUMPED past this repo's own PRIOR (older, pre-:upstream)
+        ;; pin (ADR-2607999950 left it deliberately old because this
+        ;; actor only ISSUED single-hop pedigrees back then) to the
+        ;; SAME SHA `cloud-itonami-isic-2930`/`cloud-itonami-isic-2910`
+        ;; already pin: ADR-2607999970 makes `steelworks.governor`
+        ;; independently re-verify an OPTIONAL `:upstream-ore-
+        ;; pedigree` AND makes `pedigree-for-heat` embed it via
+        ;; `:pedigree/upstream` when present -- this actor now NEEDS
+        ;; the `:upstream` chaining support that pin adds, the same
+        ;; reason `cloud-itonami-isic-2930` bumped its own pin one
+        ;; link earlier.
         io.github.kotoba-lang/pedigree
         {:git/url "https://github.com/kotoba-lang/pedigree.git"
-         :sha "84808e26a767791d6d3de06357ba8410bd05eaca"}}
+         :sha "f85784211422a651fea26f448f601abfba2e7d61"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps
@@ -61,8 +73,32 @@
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
+  ;; ADR-2607999970's critical end-to-end proof: a GENUINE cross-repo
+  ;; call into cloud-itonami-isic-0710's own `ironops.export`/
+  ;; `ironops.store` (a real production record, actually written and
+  ;; read back through that repo's OWN store, -> a real kotoba.
+  ;; pedigree record), fed as plain EDN into this actor's governor.
+  ;; Kept out of the default :test alias (and its own test-cross-
+  ;; repo/ source root) so plain `clojure -M:dev:test` never REQUIRES
+  ;; a same-org sibling checkout that a casual fork of just this repo
+  ;; would not have -- the same workspace-sibling :local/root
+  ;; convention `io.github.kotoba-lang/langgraph`/`robotics` above
+  ;; already use, one org level up instead of across orgs (the same
+  ;; convention `cloud-itonami-isic-2930`'s own :cross-repo-test
+  ;; alias already established for ITS isic-2410 dependency, one link
+  ;; earlier). Still no live network call at runtime: this is a
+  ;; build-time classpath dependency exercised by tests, the same
+  ;; category as every other :local/root dep in this fleet.
+  :cross-repo-test
+  {:extra-paths ["test-cross-repo"]
+   :extra-deps {io.github.cognitect-labs/test-runner
+                {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                io.github.cloud-itonami/cloud-itonami-isic-0710
+                {:local/root "../cloud-itonami-isic-0710"}}
+   :main-opts ["-m" "cognitect.test-runner" "-d" "test-cross-repo"]
+   :exec-fn cognitect.test-runner.api/test}
   ;; static analysis -- clj-kondo from deps (no binary), errors fail CI.
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts    ["-m" "clj-kondo.main"
-                        "--lint" "src" "test"
+                        "--lint" "src" "test" "test-cross-repo"
                         "--fail-level" "error"]}}}

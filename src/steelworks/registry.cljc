@@ -108,3 +108,38 @@
 
 (defn append [history result]
   (conj (vec history) (get result "record")))
+
+;; ----------------------------- :handoff (additive, optional) -----------------------------
+;;
+;; Part-supplier-linkage traceability (superproject part-supplier-
+;; linkage ADR, cloud-itonami-isic-2410<->cloud-itonami-isic-2813):
+;; `:actuation/dispatch-heat` may OPTIONALLY carry a `:handoff` (the
+;; superproject `:handoff` shared shape, ADR-2607177600, isic-1075<->
+;; jsic-4721, REUSED AS-IS -- no new shape) naming which downstream
+;; consumer (e.g. cloud-itonami-isic-2813, a pressure-equipment
+;; manufacturer sourcing `part:frame` steel stock) the dispatched
+;; block/heat is destined for. Unlike isic-1075's own `:coordinate-
+;; shipment` (which made `:handoff` MANDATORY), this actor's
+;; `:handoff` stays OPTIONAL -- this mill ships blocks/heats to any
+;; customer, tracked or not, the same 'optional field absent -> not
+;; checked' discipline cloud-itonami-isic-2710's own `:coordinate-
+;; shipment`-`:handoff` extension established. Existing callers that
+;; never set `:handoff` are completely unaffected.
+
+(defn handoff-fields-present?
+  "True when `handoff` carries the three identity/correlation
+  `:handoff/*` fields (`:handoff/id`/`:handoff/source-actor`/
+  `:handoff/batch-id`) the superproject `:handoff` shared shape
+  requires for traceability -- called ONLY when a `:handoff` map is
+  actually present on a `:actuation/dispatch-heat` proposal (see
+  `steelworks.governor/handoff-incomplete-violations`); a proposal
+  with NO `:handoff` at all never reaches this predicate. Domain-
+  specific optional fields on the shared shape (`:handoff/product-
+  type-id`/`:handoff/quantity-kg`/`:handoff/cold-chain-temp-min-c`/
+  `:handoff/cold-chain-temp-max-c`/`:handoff/dispatched-at-iso`) are
+  NOT required here -- structural steel blocks/heats are not
+  cold-chain goods, the same 'optional field absent -> not checked'
+  discipline cloud-itonami-isic-2710's own handoff-compatibility check
+  uses."
+  [handoff]
+  (every? some? ((juxt :handoff/id :handoff/source-actor :handoff/batch-id) handoff)))

@@ -102,14 +102,18 @@
   "Backend-agnostic `:heat/mark-dispatched` -- looks up the
   heat via the protocol and drafts the heat-dispatch record,
   and returns {:result .. :heat-patch ..} for the caller to
-  persist."
-  [s heat-id]
+  persist. `handoff` (optional, superproject part-supplier-linkage
+  ADR, cloud-itonami-isic-2410<->cloud-itonami-isic-2813) is merged
+  into `:heat-patch` verbatim when present -- callers that never pass
+  it are unaffected."
+  [s heat-id & [handoff]]
   (let [a (heat s heat-id)
         seq-n (next-dispatch-sequence s (:jurisdiction a))
         result (registry/register-heat-dispatch heat-id (:jurisdiction a) seq-n)]
     {:result result
-     :heat-patch {:heat-dispatched? true
-                      :dispatch-number (get result "dispatch_number")}}))
+     :heat-patch (cond-> {:heat-dispatched? true
+                          :dispatch-number (get result "dispatch_number")}
+                   handoff (assoc :handoff handoff))}))
 
 (defn- issue-mill-cert!
   "Backend-agnostic `:heat/mark-certified` -- looks up the
@@ -152,7 +156,7 @@
 
       :heat/mark-dispatched
       (let [heat-id (first path)
-            {:keys [result heat-patch]} (dispatch-heat! s heat-id)
+            {:keys [result heat-patch]} (dispatch-heat! s heat-id (:handoff value))
             jurisdiction (:jurisdiction (heat s heat-id))]
         (swap! a (fn [state]
                    (-> state
@@ -208,7 +212,7 @@
                              quality-defect-unresolved?
                              heat-dispatched? mill-certified?
                              upstream-ore-pedigree
-                             jurisdiction status dispatch-number evidence-number]}]
+                             jurisdiction status dispatch-number evidence-number handoff]}]
   (cond-> {:heat/id id}
     unit-name                                  (assoc :heat/unit-name unit-name)
     chemistry-deviation-actual                (assoc :heat/chemistry-deviation-actual chemistry-deviation-actual)
@@ -221,13 +225,16 @@
     jurisdiction                                (assoc :heat/jurisdiction jurisdiction)
     status                                      (assoc :heat/status status)
     dispatch-number                             (assoc :heat/dispatch-number dispatch-number)
-    evidence-number                             (assoc :heat/evidence-number evidence-number)))
+    evidence-number                             (assoc :heat/evidence-number evidence-number)
+    ;; additive (part-supplier-linkage ADR, isic-2410<->isic-2813): a nested
+    ;; map, EDN-string-encoded like `:heat/upstream-ore-pedigree` above.
+    handoff                                     (assoc :heat/handoff (enc handoff))))
 
 (def ^:private block-pull
   [:heat/id :heat/unit-name :heat/chemistry-deviation-actual
    :heat/chemistry-deviation-min :heat/chemistry-deviation-max
    :heat/quality-defect-unresolved? :heat/heat-dispatched? :heat/mill-certified?
-   :heat/upstream-ore-pedigree
+   :heat/upstream-ore-pedigree :heat/handoff
    :heat/jurisdiction :heat/status :heat/dispatch-number :heat/evidence-number])
 
 (defn- pull->heat [m]
@@ -240,6 +247,7 @@
      :heat-dispatched? (boolean (:heat/heat-dispatched? m))
      :mill-certified? (boolean (:heat/mill-certified? m))
      :upstream-ore-pedigree (dec* (:heat/upstream-ore-pedigree m))
+     :handoff (dec* (:heat/handoff m))
      :jurisdiction (:heat/jurisdiction m) :status (:heat/status m)
      :dispatch-number (:heat/dispatch-number m) :evidence-number (:heat/evidence-number m)}))
 
@@ -298,7 +306,7 @@
 
       :heat/mark-dispatched
       (let [heat-id (first path)
-            {:keys [result heat-patch]} (dispatch-heat! s heat-id)
+            {:keys [result heat-patch]} (dispatch-heat! s heat-id (:handoff value))
             jurisdiction (:jurisdiction (heat s heat-id))
             next-n (inc (next-dispatch-sequence s jurisdiction))]
         (d/transact! conn

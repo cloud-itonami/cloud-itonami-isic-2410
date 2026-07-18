@@ -116,18 +116,28 @@
   README `Actuation`: no phase ever adds this op to a phase's `:auto`
   set (`steelworks.phase`); the governor also always escalates on
   `:actuation/dispatch-heat`. Two independent layers agree,
-  deliberately."
-  [db {:keys [subject]}]
+  deliberately.
+
+  Additive (superproject part-supplier-linkage ADR, cloud-itonami-
+  isic-2410<->cloud-itonami-isic-2813): the request may OPTIONALLY
+  carry a `:handoff` (the superproject `:handoff` shared shape,
+  ADR-2607177600, reused as-is) naming the downstream consumer this
+  dispatched block/heat is destined for. The advisor only echoes the
+  caller's own `:handoff` verbatim into `:value` -- it never invents
+  one; `steelworks.governor` INDEPENDENTLY re-verifies its required
+  fields (when present) before anything commits."
+  [db {:keys [subject handoff]}]
   (let [a (store/heat db subject)]
     {:summary    (str subject " 向けブロック実行提案"
-                      (when a (str " (block=" (:unit-name a) ")")))
+                      (when a (str " (block=" (:unit-name a) ")"))
+                      (when-let [src (:handoff/source-actor handoff)] (str " supplier-of=" src)))
      :rationale  (if a
                    (str "chemistry-deviation-actual=" (:chemistry-deviation-actual a)
                         " spec=[" (:chemistry-deviation-min a) "," (:chemistry-deviation-max a) "]")
                    "ブロック記録が見つかりません")
-     :cites      (if a [subject] [])
+     :cites      (if a (cond-> [subject] (:handoff/source-actor handoff) (conj (:handoff/source-actor handoff))) [])
      :effect     :heat/mark-dispatched
-     :value      {:heat-id subject}
+     :value      (cond-> {:heat-id subject} handoff (assoc :handoff handoff))
      :stake      :actuation/dispatch-heat
      :confidence (if (and a (not (registry/heat-chemistry-out-of-range? a))) 0.9 0.3)}))
 

@@ -46,10 +46,9 @@
   already established one link earlier. Absent on every heat that
   predates this ADR; `steelworks.governor`'s new check treats its
   absence as a no-op, so this is purely additive on both backends."
-  (:require #?(:clj  [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [steelworks.registry :as registry]
-            [langchain.db :as d]))
+  (:require [steelworks.registry :as registry]
+            [langchain.db :as d]
+            [langchain-store.core :as ls]))
 
 (defprotocol Store
   (heat [s id])
@@ -195,18 +194,14 @@
   Map/compound values (verification/quality-screen payloads, ledger facts,
   dispatch/evidence records) are stored as EDN strings so `langchain.
   db` doesn't expand them into sub-entities -- the same convention
-  every sibling actor's store uses."
-  {:heat/id                       {:db/unique :db.unique/identity}
-   :verification/heat-id          {:db/unique :db.unique/identity}
-   :quality-screen/heat-id            {:db/unique :db.unique/identity}
-   :ledger/seq                        {:db/unique :db.unique/identity}
-   :dispatch/seq                      {:db/unique :db.unique/identity}
-   :evidence/seq                      {:db/unique :db.unique/identity}
-   :dispatch-sequence/jurisdiction    {:db/unique :db.unique/identity}
-   :evidence-sequence/jurisdiction    {:db/unique :db.unique/identity}})
-
-(defn- enc [v] (pr-str v))
-(defn- dec* [s] (when s (edn/read-string s)))
+  every sibling actor's store uses. The identity-schema builder,
+  EDN-blob codec and seq-keyed event-log read/append are the shared
+  kotoba-lang/langchain-store machinery (ADR-2607141600) -- the seam
+  ~190 actors hand-roll; this store keeps only its domain wiring."
+  (ls/identity-schema
+   [:heat/id :verification/heat-id :quality-screen/heat-id
+    :ledger/seq :dispatch/seq :evidence/seq
+    :dispatch-sequence/jurisdiction :evidence-sequence/jurisdiction]))
 
 (defn- block->tx [{:keys [id unit-name chemistry-deviation-actual chemistry-deviation-min chemistry-deviation-max
                              quality-defect-unresolved?
@@ -221,14 +216,14 @@
     (some? quality-defect-unresolved?)              (assoc :heat/quality-defect-unresolved? quality-defect-unresolved?)
     (some? heat-dispatched?)                (assoc :heat/heat-dispatched? heat-dispatched?)
     (some? mill-certified?)            (assoc :heat/mill-certified? mill-certified?)
-    (some? upstream-ore-pedigree)               (assoc :heat/upstream-ore-pedigree (enc upstream-ore-pedigree))
+    (some? upstream-ore-pedigree)               (assoc :heat/upstream-ore-pedigree (ls/enc upstream-ore-pedigree))
     jurisdiction                                (assoc :heat/jurisdiction jurisdiction)
     status                                      (assoc :heat/status status)
     dispatch-number                             (assoc :heat/dispatch-number dispatch-number)
     evidence-number                             (assoc :heat/evidence-number evidence-number)
     ;; additive (part-supplier-linkage ADR, isic-2410<->isic-2813): a nested
     ;; map, EDN-string-encoded like `:heat/upstream-ore-pedigree` above.
-    handoff                                     (assoc :heat/handoff (enc handoff))))
+    handoff                                     (assoc :heat/handoff (ls/enc handoff))))
 
 (def ^:private block-pull
   [:heat/id :heat/unit-name :heat/chemistry-deviation-actual
@@ -246,8 +241,8 @@
      :quality-defect-unresolved? (boolean (:heat/quality-defect-unresolved? m))
      :heat-dispatched? (boolean (:heat/heat-dispatched? m))
      :mill-certified? (boolean (:heat/mill-certified? m))
-     :upstream-ore-pedigree (dec* (:heat/upstream-ore-pedigree m))
-     :handoff (dec* (:heat/handoff m))
+     :upstream-ore-pedigree (ls/dec* (:heat/upstream-ore-pedigree m))
+     :handoff (ls/dec* (:heat/handoff m))
      :jurisdiction (:heat/jurisdiction m) :status (:heat/status m)
      :dispatch-number (:heat/dispatch-number m) :evidence-number (:heat/evidence-number m)}))
 
@@ -260,25 +255,16 @@
          (map #(pull->heat (d/pull (d/db conn) block-pull [:heat/id %])))
          (sort-by :id)))
   (quality-screen-of [_ id]
-    (dec* (d/q '[:find ?p . :in $ ?aid
+    (ls/dec* (d/q '[:find ?p . :in $ ?aid
                 :where [?k :quality-screen/heat-id ?aid] [?k :quality-screen/payload ?p]]
               (d/db conn) id)))
   (requirements-verification-of [_ heat-id]
-    (dec* (d/q '[:find ?p . :in $ ?aid
+    (ls/dec* (d/q '[:find ?p . :in $ ?aid
                 :where [?a :verification/heat-id ?aid] [?a :verification/payload ?p]]
               (d/db conn) heat-id)))
-  (ledger [_]
-    (->> (d/q '[:find ?s ?f :where [?e :ledger/seq ?s] [?e :ledger/fact ?f]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
-  (dispatch-history [_]
-    (->> (d/q '[:find ?s ?r :where [?e :dispatch/seq ?s] [?e :dispatch/record ?r]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
-  (evidence-history [_]
-    (->> (d/q '[:find ?s ?r :where [?e :evidence/seq ?s] [?e :evidence/record ?r]] (d/db conn))
-         (sort-by first)
-         (mapv (comp dec* second))))
+  (ledger [_] (ls/read-stream conn :ledger/seq :ledger/fact))
+  (dispatch-history [_] (ls/read-stream conn :dispatch/seq :dispatch/record))
+  (evidence-history [_] (ls/read-stream conn :evidence/seq :evidence/record))
   (next-dispatch-sequence [_ jurisdiction]
     (or (d/q '[:find ?n . :in $ ?j
               :where [?e :dispatch-sequence/jurisdiction ?j] [?e :dispatch-sequence/next ?n]]
@@ -299,10 +285,10 @@
       (d/transact! conn [(block->tx value)])
 
       :verification/set
-      (d/transact! conn [{:verification/heat-id (first path) :verification/payload (enc payload)}])
+      (d/transact! conn [{:verification/heat-id (first path) :verification/payload (ls/enc payload)}])
 
       :quality-screen/set
-      (d/transact! conn [{:quality-screen/heat-id (first path) :quality-screen/payload (enc payload)}])
+      (d/transact! conn [{:quality-screen/heat-id (first path) :quality-screen/payload (ls/enc payload)}])
 
       :heat/mark-dispatched
       (let [heat-id (first path)
@@ -312,7 +298,7 @@
         (d/transact! conn
                      [(block->tx (assoc heat-patch :id heat-id))
                       {:dispatch-sequence/jurisdiction jurisdiction :dispatch-sequence/next next-n}
-                      {:dispatch/seq (count (dispatch-history s)) :dispatch/record (enc (get result "record"))}])
+                      {:dispatch/seq (count (dispatch-history s)) :dispatch/record (ls/enc (get result "record"))}])
         result)
 
       :heat/mark-certified
@@ -323,12 +309,12 @@
         (d/transact! conn
                      [(block->tx (assoc heat-patch :id heat-id))
                       {:evidence-sequence/jurisdiction jurisdiction :evidence-sequence/next next-n}
-                      {:evidence/seq (count (evidence-history s)) :evidence/record (enc (get result "record"))}])
+                      {:evidence/seq (count (evidence-history s)) :evidence/record (ls/enc (get result "record"))}])
         result)
       nil)
     s)
   (append-ledger! [s fact]
-    (d/transact! conn [{:ledger/seq (count (ledger s)) :ledger/fact (enc fact)}])
+    (ls/append-blob! conn :ledger/seq :ledger/fact (count (ledger s)) fact)
     fact)
   (with-heats [s heats]
     (when (seq heats) (d/transact! conn (mapv block->tx (vals heats)))) s))

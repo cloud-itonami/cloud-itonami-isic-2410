@@ -44,7 +44,41 @@
           :required-evidence ["CAE-Simulationsbericht (CAE-simulation-report)"
                               "Chemieanalysebericht (chemistry-analysis-report)"
                               "Qualitäts-Rückverfolgbarkeitsnachweis (quality-chain-of-custody-record)"
-                              "Werkstoffzertifikat (material-certification-record)"]}})
+                              "Werkstoffzertifikat (material-certification-record)"]}
+   ;; India (IND) -- deliberately NARROWER than the other four entries.
+   ;; Confirmed this session, fetched directly:
+   ;;  - bis.gov.in homepage "What's New" ticker (own text, curl'd and
+   ;;    grepped, 2026-07-22) names a real, currently-administered
+   ;;    standard: IS 2062 (Part 2) : 2026, "Structural Steel - Part 2 -
+   ;;    Hot Rolled Quenched and Tempered Steel Plates, Sheets, Strips
+   ;;    and Wide Flats", for which BIS just issued its first All India
+   ;;    Licence (AIF) under its Standard Mark scheme.
+   ;;  - indiacode.nic.in serves the actual Act PDF for The Bureau of
+   ;;    Indian Standards Act, 2016 (Act No. 11 of 2016, 21 Mar 2016):
+   ;;    "An Act to provide for the establishment of a national standards
+   ;;    body for the harmonious development of the activities of
+   ;;    standardisation, conformity assessment and quality assurance of
+   ;;    goods, articles, processes, systems and services..." -- this is
+   ;;    BIS's enabling law (ch. III "Indian Standards, Certification and
+   ;;    Licence" governs the Standard Mark licence just cited above).
+   ;; NOT included (gap, honestly disclosed instead of guessed): the full
+   ;; IS 2062 series scope (e.g. an IS 2062 Part 1 "ordinary structural
+   ;; steel" clause) was NOT independently fetched/read this session, so
+   ;; :legal-basis cites only the confirmed Part 2:2026 licence, not the
+   ;; whole series. cpcb.nic.in (environmental/emission standards route)
+   ;; was unreachable from this environment (connection timed out) and so
+   ;; is not cited here either -- a future session with working network
+   ;; access to cpcb.nic.in could extend this entry with a genuine
+   ;; emissions-standard citation once it fetches and reads one.
+   "IND" {:name "India"
+          :owner-authority "Bureau of Indian Standards (BIS) / Ministry of Steel (reference)"
+          :legal-basis "Bureau of Indian Standards Act, 2016 (Act No. 11 of 2016) / IS 2062 (Part 2):2026 structural steel specification (reference)"
+          :national-spec "IN basic iron and steel product (structural steel) specification and mill-test requirements"
+          :provenance "https://www.bis.gov.in/"
+          :required-evidence ["CAE-simulation-report"
+                              "chemistry-analysis-report"
+                              "quality-chain-of-custody-record"
+                              "Material-certification-record"]}})
 
 (defn spec-basis [iso3] (get catalog iso3))
 

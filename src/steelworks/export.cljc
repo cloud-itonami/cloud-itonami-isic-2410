@@ -17,7 +17,7 @@
   independently re-verify. Still the same discipline as everything
   else in this ns: a pure data transform over data already on file,
   never a live network call and never an invented claim."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotoba.pedigree :as pedigree]
             [steelworks.store :as store]))
 

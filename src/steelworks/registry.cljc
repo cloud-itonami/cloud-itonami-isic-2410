@@ -26,7 +26,7 @@
   (that is `steelworks.operation`'s `:actuation/dispatch-heat`/
   `:actuation/issue-mill-cert`, always human-gated -- see
   README `Actuation`)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is the
@@ -72,7 +72,7 @@
     (throw (ex-info "block-dispatch: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "block-dispatch: sequence must be >= 0" {})))
-  (let [dispatch-number (str (str/upper-case jurisdiction) "-HET-" (zero-pad sequence 6))
+  (let [dispatch-number (str (str/upper jurisdiction) "-HET-" (zero-pad sequence 6))
         record {"record_id" dispatch-number
                 "kind" "heat-dispatch-draft"
                 "heat_id" heat-id
@@ -97,7 +97,7 @@
     (throw (ex-info "mill-cert: jurisdiction required" {})))
   (when (< sequence 0)
     (throw (ex-info "mill-cert: sequence must be >= 0" {})))
-  (let [evidence-number (str (str/upper-case jurisdiction) "-MIL-" (zero-pad sequence 6))
+  (let [evidence-number (str (str/upper jurisdiction) "-MIL-" (zero-pad sequence 6))
         record {"record_id" evidence-number
                 "kind" "mill-cert-draft"
                 "heat_id" heat-id

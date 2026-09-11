@@ -1,5 +1,5 @@
 (ns steelworks.sim
-  "Demo driver -- `clojure -M:dev:run`. Walks a clea heat through
+  "Demo driver -- `kbb -M:dev:run`. Walks a clea heat through
   intake -> requirements verification -> quality-defect screening ->
   block-dispatch proposal (always escalates) -> human approval ->
   commit, then through mill-cert proposal (always

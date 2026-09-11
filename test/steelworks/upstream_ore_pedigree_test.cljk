@@ -6,7 +6,7 @@
   map literal that merely LOOKS like a pedigree). The genuine
   cross-repo proof -- an actual call into `cloud-itonami-isic-0710`'s
   `ironops.export/pedigree-for-production-record` -- lives in
-  `test-cross-repo/steelworks/pedigree_integration_test.clj` (a
+  `test-cross-repo/steelworks/pedigree_integration_test.cljk` (a
   separate alias, see deps.edn); this file only proves the GOVERNOR
   check itself is correct in isolation, independent of which upstream
   actor produced the pedigree. Mirrors `autoparts.upstream-pedigree-

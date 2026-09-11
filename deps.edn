@@ -75,7 +75,7 @@
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
          {:local/root "../../kotoba-lang/langchain"}}}
-  ;; clojure -M:dev:run  -> drive the demo through one OperationActor
+  ;; kbb -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "steelworks.sim"]}
   :render-html {:main-opts ["-m" "steelworks.render-html"]}
   :export {:main-opts ["-m" "steelworks.export-run"]}
@@ -90,7 +90,7 @@
   ;; read back through that repo's OWN store, -> a real kotoba.
   ;; pedigree record), fed as plain EDN into this actor's governor.
   ;; Kept out of the default :test alias (and its own test-cross-
-  ;; repo/ source root) so plain `clojure -M:dev:test` never REQUIRES
+  ;; repo/ source root) so plain `kbb -M:dev:test` never REQUIRES
   ;; a same-org sibling checkout that a casual fork of just this repo
   ;; would not have -- the same workspace-sibling :local/root
   ;; convention `io.github.kotoba-lang/langgraph`/`robotics` above

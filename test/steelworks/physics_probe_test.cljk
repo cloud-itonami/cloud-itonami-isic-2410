@@ -1,0 +1,54 @@
+(ns steelworks.physics-probe-test
+  "The probe is the bot's only source of \"measured\"; these pin that it
+  measures (every run numeric, count = expected), that the numbers come
+  from the simulation (the derived boundary really straddles the floor,
+  the speed scaling is read off the trajectory), and that a changed
+  solver would show."
+  (:require [clojure.test :refer [deftest is testing]]
+            [steelworks.physics-probe :as probe]
+            [steelworks.robotics :as robotics]))
+
+(deftest probe-measures-every-run
+  (let [p (probe/probe)]
+    (is (= "itonami.physical-ai.probe.v1" (:physics-probe/schema p)))
+    (is (pos? (:count p)))
+    (is (= (:count p) (:expected p) (count (:runs p))))
+    (testing "every run carries a numeric load and tick count from the trajectory"
+      (doseq [r (:runs p)]
+        (is (number? (get-in r [:quantities :sim-tensile-load-n])))
+        (is (pos? (get-in r [:quantities :ticks])))))))
+
+(defn- mass-runs [p] (take (count probe/sweep-coupon-masses-kg) (:runs p)))
+(defn- speed-runs [p] (drop (count probe/sweep-coupon-masses-kg) (:runs p)))
+
+(deftest load-rises-with-mass-across-the-sweep
+  (let [loads (map #(get-in % [:quantities :sim-tensile-load-n]) (mass-runs (probe/probe)))]
+    (is (apply < loads))))
+
+(deftest load-rises-with-test-speed-across-the-sweep
+  (let [loads (map #(get-in % [:quantities :sim-tensile-load-n]) (speed-runs (probe/probe)))]
+    (is (apply < loads))))
+
+(deftest fixture-verdicts-match-the-governor-fixtures
+  (testing "1.0 kg is the governor test's too-light heat, 5.0 kg its passing heat"
+    (let [by-mass (into {} (map (fn [r] [(get-in r [:input :coupon-mass-kg]) (:out-of-tolerance? r)])
+                                (mass-runs (probe/probe))))]
+      (is (true? (by-mass 1.0)))
+      (is (false? (by-mass 5.0))))))
+
+(deftest decel-speed-exponent-is-read-off-the-trajectory
+  (let [e (get-in (probe/probe) [:derived :decel-speed-exponent])]
+    (is (number? e))
+    (testing "single-tick arrest over a fixed travel: decel = v^2 / travel"
+      (is (< (Math/abs (- e 2.0)) 1e-9)))))
+
+(deftest derived-boundary-straddles-the-floor
+  (let [m (probe/min-passing-coupon-mass-kg)
+        load (fn [kg] (:sim-tensile-load-n (robotics/tensile-test-telemetry-for {:coupon-mass-kg kg})))]
+    (is (number? m))
+    (testing "at the boundary the load reaches the floor; 1% lighter it does not"
+      (is (>= (load m) robotics/min-tensile-load-n))
+      (is (< (load (* 0.99 m)) robotics/min-tensile-load-n)))))
+
+(deftest bracket-that-does-not-straddle-answers-nil
+  (is (nil? (probe/min-passing-coupon-mass-kg 5.0 10.0 10))))

@@ -3,7 +3,7 @@
   regress on: `:actuation/dispatch-heat`/`:actuation/issue-
   mill-cert` must NEVER be a member of any phase's
   `:auto` set."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [steelworks.phase :as phase]))
 
 (deftest dispatch-assembly-never-auto-at-any-phase

@@ -4,7 +4,7 @@
   from the simulation (the derived boundary really straddles the floor,
   the speed scaling is read off the trajectory), and that a changed
   solver would show."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [steelworks.physics-probe :as probe]
             [steelworks.robotics :as robotics]))
 

@@ -10,7 +10,7 @@
   purely ADDITIVE: `steelworks.registry/heat-chemistry-out-of-range?`
   (the pre-existing ground-truth check) is untouched, and a heat with
   no `:coupon-mass-kg` on file never trips the new check."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [steelworks.robotics :as robotics]))
 
 (defn- approx= [a b eps] (< (Math/abs (double (- a b))) eps))

@@ -1,13 +1,4 @@
-# Physical-AI bot profile config (ADR-2609241200: host-local blocks — secrets,
-# command_allowlist, onboarding, terminal, skills — stay on the host).
-# Rendered from scripts/physical-ai-bots/profile/config.yaml in the superproject;
-# every physical-AI bot carries the same inference contract so the endpoint is
-# changed in one place.
-#
-# Inference is murakumo only. `mishima` is the public model the endpoint
-# names: `murakumo-main` answers 410 model_retired "use mishima" (measured
-# 2026-09-24). No fallback provider: a murakumo outage must fail the growth
-# tick visibly, not move it to another vendor. Measurement ticks use no model.
+# Host-local blocks (command_allowlist, onboarding, secrets, skills, terminal) are kept on the host and omitted here.
 model:
   provider: murakumo
   default: mishima

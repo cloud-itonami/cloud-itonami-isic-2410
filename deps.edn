@@ -10,24 +10,32 @@
         ;; kotoba.lang.edn replaced clojure.edn here (2026-09-23). An explicit floor:
         ;; tools.deps takes the NEWEST sha it is shown, and kbb resolves git deps
         ;; only from nbb.edn, so every project file this repo has names it.
-        io.github.kotoba-lang/edn {:git/sha "79dba32c8892058842c57783f06a2dfe4601aeb0"}
+        io.github.kotoba-lang/edn
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "325baa31020aa214bd17cb39e3803712f92f5a1a"
+         :deps/root "lib/kotoba.edn"}
        ;; kotoba.test (clojure.test-compatible surface), not clojure.test --
         ;; scripts/migrate-clojure-test-to-kotoba-test.cljk. Explicit floor.
-        io.github.kotoba-lang/test {:git/url "https://github.com/kotoba-lang/test.git"
-                                    :git/sha "2ab4885f99fd25552d380d0f6b0b54c5a72eb7ae"}
+        io.github.kotoba-lang/test
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "325baa31020aa214bd17cb39e3803712f92f5a1a"
+         :deps/root "lib/kotoba.test"}
         ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
         ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
         ;; this repo silently rides whatever a sibling happens to name.
-        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+        io.github.kotoba-lang/text
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "325baa31020aa214bd17cb39e3803712f92f5a1a"
+         :deps/root "lib/kotoba.text"}
        io.github.kotoba-lang/langgraph
-        {:local/root "../../kotoba-lang/langgraph"}
+        {:local/root "../../kotoba-lang/kotoba/lib/kotoba.langgraph"}
         io.github.kotoba-lang/robotics
-        {:local/root "../../kotoba-lang/robotics"}
+        {:local/root "../../kotoba-lang/kotoba/lib/kotoba.robotics"}
         ;; langchain-store: the shared langchain.db store seam (EDN-blob
         ;; codec + identity schema + event-log helpers) that ~190 actors
         ;; hand-roll; steelworks.store is an adopter (ADR-2607141600).
         io.github.kotoba-lang/langchain-store
-        {:local/root "../../kotoba-lang/langchain-store"}
+        {:local/root "../../kotoba-lang/kotoba/lib/kotoba.langchainStore"}
         ;; REAL engineering-simulation dependency (ADR-2607999600,
         ;; extending ADR-2607142800's/ADR-2607152000's fleet-wide
         ;; robotics-process-simulation pattern to this vertical --
@@ -51,8 +59,9 @@
         ;; already established, using the SAME fleet-standard SHA pin
         ;; those repos currently use.
         io.github.kotoba-lang/physics-2d
-        {:git/url "https://github.com/kotoba-lang/physics-2d.git"
-         :git/sha "03b6c23c8d9aa36b92a8130fd3e37fc2548b4d26"}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "325baa31020aa214bd17cb39e3803712f92f5a1a"
+         :deps/root "lib/kotoba.physics2d"}
         ;; Cross-actor supply-chain-linkage contract (ADR-2607999950,
         ;; extended by ADR-2607999970): `steelworks.export/pedigree-
         ;; for-heat` packages a `kotoba.pedigree` record from a
@@ -76,8 +85,9 @@
         ;; reason `cloud-itonami-isic-2930` bumped its own pin one
         ;; link earlier.
         io.github.kotoba-lang/pedigree
-        {:git/url "https://github.com/kotoba-lang/pedigree.git"
-         :git/sha "f85784211422a651fea26f448f601abfba2e7d61"}}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "325baa31020aa214bd17cb39e3803712f92f5a1a"
+         :deps/root "lib/kotoba.pedigree"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   :dev {:override-deps
